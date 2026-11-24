@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-dock="bottom">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Vesper</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2309060e'/%3E%3Cpath d='M16 18L32 48L48 18H39L32 32.5L25 18H16Z' fill='%239333ea'/%3E%3Ccircle cx='32' cy='16' r='3.5' fill='%23d8b4fe'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./css/variables.css" />
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/auth.css" />
+  <link rel="stylesheet" href="./css/dock.css" />
+  <link rel="stylesheet" href="./css/views.css" />
+  <link rel="stylesheet" href="./css/chat.css" />
+</head>
+<body>
+  <!-- Ambient Background Layers -->
+  <div id="ambient-bg" class="ambient-bg" aria-hidden="true">
+    <div class="ambient-streak streak-1"></div>
+    <div class="ambient-streak streak-2"></div>
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+  </div>
+
+  <!-- Optional Custom Cursor Dot -->
+  <div id="cursor-dot" class="cursor-dot hidden" aria-hidden="true"></div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- =========================================================
+       FRONT-DOOR ENTRY GATE (Shows immediately on first visit)
+       ========================================================= -->
+  <div id="auth-gate" class="auth-gate hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="auth-card">
+      <div class="auth-logo-wrap">
+        <div class="vesper-mark lg" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 17L32 50L50 17H40.5L32 33.5L23.5 17H14Z" fill="currentColor"/>
+            <circle cx="32" cy="15.5" r="3.5" fill="var(--accent-soft)"/>
+          </svg>
+        </div>
+      </div>
+
+      <h1 id="auth-title" class="auth-heading">welcome back</h1>
+      <p id="auth-subtitle" class="auth-subtitle">sign in to access vesper &amp; real-time chat</p>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" data-auth-mode="signin" role="tab" aria-selected="true">sign in</button>
+        <button type="button" class="auth-tab" data-auth-mode="signup" role="tab" aria-selected="false">create account</button>
+      </div>
+
+      <form id="auth-form" class="auth-form" novalidate>
+        <div class="input-group">
+          <label for="auth-username">username</label>
+          <input
+            id="auth-username"
+            name="username"
+            type="text"
+            placeholder="enter your username"
+            autocomplete="username"
+            maxlength="24"
+            required
+          />
+          <span class="input-hint" id="username-hint">this username will also be used in chat</span>
+        </div>
+
+        <div class="input-group">
+          <label for="auth-password">password</label>
+          <input
+            id="auth-password"
+            name="password"
+            type="password"
+            placeholder="enter your password"
+            autocomplete="current-password"
+            minlength="4"
+            required
+          />
+        </div>
+
+        <div class="input-group hidden" id="confirm-password-group">
+          <label for="auth-confirm-password">confirm password</label>
+          <input
+            id="auth-confirm-password"
+            name="confirmPassword"
+            type="password"
+            placeholder="re-enter your password"
+            autocomplete="new-password"
+            minlength="4"
+          />
+        </div>
+
+        <div id="auth-error" class="auth-error hidden" role="alert"></div>
+
+        <button type="submit" id="auth-submit-btn" class="btn-primary auth-submit">sign in</button>
+      </form>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      <button type="button" id="guest-trigger-btn" class="btn-ghost guest-btn">
+        continue as guest
+      </button>
+    </div>
+  </div>
+
+  <!-- Guest Confirmation Modal -->
+  <div id="guest-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="guest-modal-title">
+    <div class="modal-card compact">
+      <div class="modal-icon-badge warning">
+        <span data-icon="shield"></span>
+      </div>
+      <h2 id="guest-modal-title" class="modal-title">continue as guest?</h2>
+      <p class="modal-body">
+        Are you sure? If you continue as a guest, you won't be able to use the <strong>chat</strong> feature, create servers, or send DMs.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="guest-cancel-btn" class="btn-secondary">go back</button>
+        <button type="button" id="guest-confirm-btn" class="btn-primary">continue anyway</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MAIN VESPER APPLICATION SHELL
+       ========================================================= -->
+  <div id="app-shell" class="app-shell hidden">
+    <main id="app-main" class="app-main">
+      <!-- HOME VIEW -->
+      <section id="view-home" class="app-view active" data-view="home" aria-label="Home"></section>
+
+      <!-- GAMES VIEW -->
+      <section id="view-games" class="app-view" data-view="games" aria-label="Games"></section>
+
+      <!-- CHAT VIEW (Account-Gated) -->
+      <section id="view-chat" class="app-view" data-view="chat" aria-label="Chat"></section>
+
+      <!-- SETTINGS VIEW -->
+      <section id="view-settings" class="app-view" data-view="settings" aria-label="Settings"></section>
+    </main>
+
+    <!-- FLOATING DOCK & LIVE DATE -->
+    <div id="dock-wrapper" class="dock-wrapper">
+      <div id="dock-date" class="dock-date"></div>
+      <nav id="floating-dock" class="floating-dock" aria-label="Main navigation"></nav>
+    </div>
+  </div>
+
+  <!-- Generic App Modal Root (Create Server, Join Server, Create Channel, Profile, New DM) -->
+  <div id="app-modal-root" class="modal-backdrop hidden" role="dialog" aria-modal="true"></div>
+
+  <!-- Core Scripts (Ordered IIFE modules — works both locally & on GitHub Pages) -->
+  <script src="./js/icons.js"></script>
+  <script src="./js/themes.js"></script>
+  <script src="./js/media.js"></script>
+  <script src="./js/store.js"></script>
+  <script src="./js/games-data.js"></script>
+  <script src="./js/firebase-config.js"></script>
+  <script src="./js/cloak.js"></script>
+  <script src="./js/proxy.js"></script>
+  <script src="./js/auth.js"></script>
+  <script src="./js/dock.js"></script>
+  <script src="./js/home.js"></script>
+  <script src="./js/games.js"></script>
+  <script src="./js/chat.js"></script>
+  <script src="./js/settings.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
