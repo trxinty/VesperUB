@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Cosmic Clicker · Vesper</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;background:#07050c;color:#f5f3ff;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+canvas{display:block;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(139,92,246,0.28);max-width:100%;max-height:100%;}
+.hud{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(13,9,20,0.86);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:10;}
+.hud span b{color:#c4b5fd;}
+.overlay{position:fixed;inset:0;background:rgba(6,4,10,0.78);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;text-align:center;padding:24px;}
+.overlay.hidden{display:none;}
+.overlay h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;letter-spacing:-0.03em;background:linear-gradient(135deg,#fff,#c4b5fd,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.overlay p{color:#a79ec0;max-width:360px;font-size:0.95rem;line-height:1.5;}
+.btn{background:#8b5cf6;color:#fff;border:none;padding:11px 22px;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(139,92,246,0.35);transition:transform 0.14s,background 0.14s;}
+.btn:hover{background:#7c3aed;transform:translateY(-1px);}
+.btn.sec{background:#1b1429;border:1px solid rgba(255,255,255,0.14);box-shadow:none;}
+.btn.active{background:#c084fc;color:#09060e;}
+.wrap{display:grid;grid-template-columns:1fr 300px;gap:20px;width:min(94vw,760px);height:min(82vh,520px);margin-top:34px;}
+    .left{background:#120d1d;border:1px solid rgba(139,92,246,0.28);border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;}
+    .orb{width:170px;height:170px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#e9d5ff,#8b5cf6 55%,#3b0764);box-shadow:0 0 50px rgba(139,92,246,0.55);border:3px solid #d8b4fe;cursor:pointer;font-size:3.2rem;display:flex;align-items:center;justify-content:center;transition:transform 0.08s;}
+    .orb:active{transform:scale(0.92);}
+    .shop{background:#120d1d;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+    .up{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:11px;background:#1b1429;border:1px solid rgba(255,255,255,0.08);cursor:pointer;text-align:left;color:#fff;}
+    .up:disabled{opacity:0.42;cursor:not-allowed;}
+    .up:not(:disabled):hover{border-color:#a855f7;background:#241a38;}
+    @media(max-width:650px){.wrap{grid-template-columns:1fr;height:auto;max-height:85vh;overflow-y:auto;}}</style>
+</head>
+<body>
+<div class="hud"><span>Energy <b id="en">0</b></span><span>Per Sec <b id="ps">0</b></span></div>
+<div class="wrap">
+  <div class="left">
+    <button class="orb" id="orb">⚡</button>
+    <div style="text-align:center;"><div id="big" style="font-size:2rem;font-weight:900;">0</div><div style="color:#a79ec0;font-size:0.85rem;">Tap the Vesper Core</div></div>
+  </div>
+  <div class="shop" id="shop"></div>
+</div>
+<script>
+
+const UPGRADES=[
+  {id:'tap',name:'Power Finger',desc:'+1 per click',base:15,type:'click',val:1},
+  {id:'bot',name:'Mini Drone',desc:'+1 / sec',base:25,type:'cps',val:1},
+  {id:'rig',name:'Plasma Rig',desc:'+6 / sec',base:120,type:'cps',val:6},
+  {id:'core',name:'Void Reactor',desc:'+28 / sec',base:650,type:'cps',val:28},
+  {id:'star',name:'Dyson Forge',desc:'+120 / sec',base:3200,type:'cps',val:120},
+  {id:'galaxy',name:'Nebula Engine',desc:'+600 / sec',base:18000,type:'cps',val:600}
+];
+let save=JSON.parse(localStorage.getItem('vg_clicker_v1')||'null')||{energy:0,owned:{}};
+function cost(u){ return Math.floor(u.base*Math.pow(1.18,save.owned[u.id]||0)); }
+function calcClick(){ return 1+UPGRADES.filter(u=>u.type==='click').reduce((a,u)=>a+(save.owned[u.id]||0)*u.val,0); }
+function calcCps(){ return UPGRADES.filter(u=>u.type==='cps').reduce((a,u)=>a+(save.owned[u.id]||0)*u.val,0); }
+function fmt(n){ if(n>=1e6)return (n/1e6).toFixed(2)+'M'; if(n>=1e3)return (n/1e3).toFixed(1)+'K'; return Math.floor(n).toString(); }
+
+function renderShop(){
+  const s=document.getElementById('shop'); s.innerHTML='';
+  UPGRADES.forEach(u=>{
+    const c=cost(u), cnt=save.owned[u.id]||0;
+    const b=document.createElement('button'); b.className='up'; b.disabled=save.energy<c;
+    b.innerHTML=`<div><div style="font-weight:700;font-size:0.9rem;">${u.name} <span style="color:#c4b5fd;">x${cnt}</span></div><div style="font-size:0.75rem;color:#a79ec0;">${u.desc}</div></div><div style="font-weight:800;color:#facc15;">${fmt(c)}</div>`;
+    b.onclick=()=>{ if(save.energy<c)return; save.energy-=c; save.owned[u.id]=cnt+1; sync(); renderShop(); };
+    s.appendChild(b);
+  });
+}
+function sync(){
+  const f=fmt(save.energy);
+  document.getElementById('en').textContent=f; document.getElementById('big').textContent=f;
+  document.getElementById('ps').textContent=fmt(calcCps());
+}
+document.getElementById('orb').onclick=()=>{ save.energy+=calcClick(); sync(); renderShop(); };
+setInterval(()=>{ save.energy+=calcCps()/10; sync(); },100);
+setInterval(()=>{ renderShop(); localStorage.setItem('vg_clicker_v1',JSON.stringify(save)); },800);
+sync(); renderShop();
+
+</script>
+</body>
+</html>

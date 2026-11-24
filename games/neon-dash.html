@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Neon Dash · Vesper</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;background:#07050c;color:#f5f3ff;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+canvas{display:block;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(139,92,246,0.28);max-width:100%;max-height:100%;}
+.hud{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(13,9,20,0.86);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:10;}
+.hud span b{color:#c4b5fd;}
+.overlay{position:fixed;inset:0;background:rgba(6,4,10,0.78);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;text-align:center;padding:24px;}
+.overlay.hidden{display:none;}
+.overlay h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;letter-spacing:-0.03em;background:linear-gradient(135deg,#fff,#c4b5fd,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.overlay p{color:#a79ec0;max-width:360px;font-size:0.95rem;line-height:1.5;}
+.btn{background:#8b5cf6;color:#fff;border:none;padding:12px 26px;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(139,92,246,0.4);transition:transform 0.14s,background 0.14s;}
+.btn:hover{background:#7c3aed;transform:translateY(-1px);}
+.btn.sec{background:#1b1429;border:1px solid rgba(255,255,255,0.14);box-shadow:none;}
+</style>
+</head>
+<body>
+<div class="hud"><span>Score <b id="sc">0</b></span><span>Best <b id="bs">0</b></span><span>Speed <b id="sp">1.0x</b></span></div>
+<canvas id="c" width="840" height="420"></canvas>
+<div class="overlay" id="ov">
+  <h1>NEON DASH</h1>
+  <p>Jump over laser spikes & ride jump pads. Press <strong>Space / Up / Tap</strong> to jump.</p>
+  <button class="btn" id="startBtn">Play Now</button>
+</div>
+<script>
+
+const c=document.getElementById('c'),ctx=c.getContext('2d'),ov=document.getElementById('ov');
+const scEl=document.getElementById('sc'),bsEl=document.getElementById('bs'),spEl=document.getElementById('sp');
+let best=+(localStorage.getItem('vg_neondash_best')||0); bsEl.textContent=best;
+const GROUND=345;
+let running=false,score=0,speed=6.2,frame=0;
+let player={x:130,y:GROUND-36,w:36,h:36,vy:0,rot:0,onGround:true,trail:[]};
+let obstacles=[],particles=[];
+
+function reset(){
+  score=0; speed=6.2; frame=0; obstacles=[]; particles=[];
+  player={x:130,y:GROUND-36,w:36,h:36,vy:0,rot:0,onGround:true,trail:[]};
+  running=true; ov.classList.add('hidden');
+}
+function jump(){
+  if(!running){ reset(); return; }
+  if(player.onGround){
+    player.vy=-13.2; player.onGround=false;
+    for(let i=0;i<8;i++) particles.push({x:player.x+18,y:GROUND,vx:(Math.random()-0.5)*4,vy:-Math.random()*4,life:20,col:'#c4b5fd'});
+  }
+}
+window.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();jump();}});
+c.addEventListener('pointerdown',e=>{e.preventDefault();jump();});
+document.getElementById('startBtn').onclick=reset;
+
+function spawnObstacle(){
+  const r=Math.random();
+  if(r<0.55){
+    obstacles.push({type:'spike',x:c.width+40,y:GROUND,w:32,h:36});
+  }else if(r<0.82){
+    obstacles.push({type:'spike',x:c.width+40,y:GROUND,w:30,h:34});
+    obstacles.push({type:'spike',x:c.width+70,y:GROUND,w:30,h:34});
+  }else{
+    obstacles.push({type:'block',x:c.width+40,y:GROUND-46,w:46,h:46});
+    if(Math.random()<0.5) obstacles.push({type:'spike',x:c.width+92,y:GROUND,w:30,h:34});
+  }
+}
+
+let nextSpawn=55;
+function loop(){
+  requestAnimationFrame(loop);
+  // Bg
+  const g=ctx.createLinearGradient(0,0,0,c.height);
+  g.addColorStop(0,'#090514'); g.addColorStop(1,'#190a2e');
+  ctx.fillStyle=g; ctx.fillRect(0,0,c.width,c.height);
+  // Scrolling Grid
+  ctx.strokeStyle='rgba(139,92,246,0.13)'; ctx.lineWidth=1;
+  const off=(frame*speed*0.5)%48;
+  for(let x=-off;x<c.width;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,GROUND);ctx.stroke();}
+  for(let y=48;y<GROUND;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}
+  // Ground
+  ctx.fillStyle='#0e081a'; ctx.fillRect(0,GROUND,c.width,c.height-GROUND);
+  ctx.strokeStyle='#a855f7'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(0,GROUND); ctx.lineTo(c.width,GROUND); ctx.stroke();
+
+  if(running){
+    frame++; score+=0.2; speed=Math.min(12.5,6.2+score*0.0045);
+    scEl.textContent=Math.floor(score); spEl.textContent=(speed/6.2).toFixed(1)+'x';
+    if(--nextSpawn<=0){ spawnObstacle(); nextSpawn=Math.max(36,Math.floor(66-speed*2.3+Math.random()*38)); }
+
+    player.vy+=0.72; player.y+=player.vy;
+    if(player.y>=GROUND-player.h){
+      player.y=GROUND-player.h; player.vy=0; player.onGround=true;
+      player.rot=Math.round(player.rot/(Math.PI/2))*(Math.PI/2);
+    }else{ player.rot+=0.13; }
+    player.trail.push({x:player.x,y:player.y,a:0.45});
+    if(player.trail.length>12) player.trail.shift();
+
+    for(let i=obstacles.length-1;i>=0;i--){
+      const o=obstacles[i]; o.x-=speed;
+      if(o.x+o.w<-40){ obstacles.splice(i,1); continue; }
+      // Collision
+      if(o.type==='spike'){
+        const px=player.x+6,py=player.y+6,pw=player.w-12,ph=player.h-10;
+        if(px<o.x+o.w-7 && px+pw>o.x+7 && py+ph>o.y-o.h+8 && py<o.y){
+          die();
+        }
+      }else if(o.type==='block'){
+        const px=player.x+3,py=player.y+3,pw=player.w-6,ph=player.h-6;
+        if(px<o.x+o.w && px+pw>o.x && py+ph>o.y && py<o.y+o.h){
+          // Allow landing on top
+          if(player.vy>=0 && player.y+player.h-player.vy<=o.y+12){
+            player.y=o.y-player.h; player.vy=0; player.onGround=true;
+            player.rot=Math.round(player.rot/(Math.PI/2))*(Math.PI/2);
+          }else{ die(); }
+        }
+      }
+    }
+  }
+
+  // Draw obstacles
+  for(const o of obstacles){
+    if(o.type==='spike'){
+      ctx.fillStyle='#f43f5e'; ctx.shadowColor='#f43f5e'; ctx.shadowBlur=12;
+      ctx.beginPath(); ctx.moveTo(o.x,o.y); ctx.lineTo(o.x+o.w/2,o.y-o.h); ctx.lineTo(o.x+o.w,o.y); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.strokeStyle='#fda4af'; ctx.lineWidth=1.5; ctx.stroke();
+    }else{
+      ctx.fillStyle='#3b0764'; ctx.strokeStyle='#c084fc'; ctx.lineWidth=2;
+      ctx.fillRect(o.x,o.y,o.w,o.h); ctx.strokeRect(o.x,o.y,o.w,o.h);
+    }
+  }
+  // Trail
+  player.trail.forEach((t,idx)=>{
+    ctx.fillStyle=`rgba(168,85,247,${(idx/player.trail.length)*0.28})`;
+    ctx.fillRect(t.x-(player.trail.length-idx)*3,t.y,player.w,player.h);
+  });
+  // Player cube
+  ctx.save();
+  ctx.translate(player.x+player.w/2,player.y+player.h/2);
+  ctx.rotate(player.rot);
+  ctx.fillStyle='#8b5cf6'; ctx.shadowColor='#a855f7'; ctx.shadowBlur=16;
+  ctx.fillRect(-player.w/2,-player.h/2,player.w,player.h);
+  ctx.shadowBlur=0;
+  ctx.strokeStyle='#f5f3ff'; ctx.lineWidth=2.5; ctx.strokeRect(-player.w/2,-player.h/2,player.w,player.h);
+  ctx.fillStyle='#f5f3ff'; ctx.fillRect(-6,-6,12,12);
+  ctx.restore();
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life--;
+    ctx.fillStyle=p.col; ctx.globalAlpha=Math.max(0,p.life/25);
+    ctx.fillRect(p.x,p.y,5,5); ctx.globalAlpha=1;
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+function die(){
+  running=false;
+  const s=Math.floor(score);
+  if(s>best){ best=s; localStorage.setItem('vg_neondash_best',best); bsEl.textContent=best; }
+  for(let i=0;i<22;i++) particles.push({x:player.x+18,y:player.y+18,vx:(Math.random()-0.5)*10,vy:(Math.random()-0.5)*10,life:28,col:'#f43f5e'});
+  ov.querySelector('h1').textContent='CRASHED!';
+  ov.querySelector('p').innerHTML=`Score: <strong>${s}</strong> · Best: <strong>${best}</strong>`;
+  document.getElementById('startBtn').textContent='Try Again';
+  ov.classList.remove('hidden');
+}
+loop();
+
+</script>
+</body>
+</html>

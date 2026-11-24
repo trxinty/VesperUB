@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Reaction Zero · Vesper</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;background:#07050c;color:#f5f3ff;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+canvas{display:block;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(139,92,246,0.28);max-width:100%;max-height:100%;}
+.hud{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(13,9,20,0.86);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:10;}
+.hud span b{color:#c4b5fd;}
+.overlay{position:fixed;inset:0;background:rgba(6,4,10,0.78);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;text-align:center;padding:24px;}
+.overlay.hidden{display:none;}
+.overlay h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;letter-spacing:-0.03em;background:linear-gradient(135deg,#fff,#c4b5fd,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.overlay p{color:#a79ec0;max-width:360px;font-size:0.95rem;line-height:1.5;}
+.btn{background:#8b5cf6;color:#fff;border:none;padding:11px 22px;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(139,92,246,0.35);transition:transform 0.14s,background 0.14s;}
+.btn:hover{background:#7c3aed;transform:translateY(-1px);}
+.btn.sec{background:#1b1429;border:1px solid rgba(255,255,255,0.14);box-shadow:none;}
+.btn.active{background:#c084fc;color:#09060e;}
+.pad{width:min(90vw,540px);height:min(62vh,360px);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;border:2px solid rgba(255,255,255,0.14);text-align:center;padding:24px;transition:background 0.12s;}
+    .pad.idle{background:#160f26;}.pad.wait{background:#7f1d1d;}.pad.go{background:#15803d;}
+    .big{font-size:2.4rem;font-weight:900;}</style>
+</head>
+<body>
+<div class="hud"><span>Round <b id="rd">0/5</b></span><span>Best <b id="bs">--</b></span></div>
+<div class="pad idle" id="pad"><div class="big" id="t1">REACTION ZERO</div><div id="t2" style="color:#d8b4fe;">Click anywhere on this pad to start a 5-round reflex test</div></div>
+<script>
+
+const pad=document.getElementById('pad'),t1=document.getElementById('t1'),t2=document.getElementById('t2');
+let state='idle',tmr=null,goAt=0,times=[],best=+(localStorage.getItem('vg_react_best')||0);
+if(best) document.getElementById('bs').textContent=best+'ms';
+
+function queue(){
+  state='wait'; pad.className='pad wait'; t1.textContent='WAIT FOR GREEN...'; t2.textContent='Hold steady — do not click early';
+  tmr=setTimeout(()=>{ state='go'; goAt=performance.now(); pad.className='pad go'; t1.textContent='CLICK NOW!'; t2.textContent='TAP!'; },1200+Math.random()*2600);
+}
+pad.addEventListener('pointerdown',()=>{
+  if(state==='idle'||state==='done'){ times=[]; document.getElementById('rd').textContent='1/5'; queue(); }
+  else if(state==='wait'){ clearTimeout(tmr); state='idle'; pad.className='pad idle'; t1.textContent='TOO SOON!'; t2.textContent='Click to restart round'; }
+  else if(state==='go'){
+    const ms=Math.round(performance.now()-goAt); times.push(ms);
+    if(!best||ms<best){ best=ms; localStorage.setItem('vg_react_best',best); document.getElementById('bs').textContent=best+'ms'; }
+    if(times.length>=5){
+      const avg=Math.round(times.reduce((a,b)=>a+b,0)/times.length);
+      state='done'; pad.className='pad idle'; t1.textContent=`AVG: ${avg}ms`;
+      t2.textContent=`Rounds: ${times.join('ms, ')}ms · Click to test again`;
+    }else{
+      state='idle'; pad.className='pad idle'; t1.textContent=`${ms}ms`;
+      t2.textContent=`Click for round ${times.length+1} of 5`;
+      document.getElementById('rd').textContent=`${times.length+1}/5`;
+    }
+  }
+});
+
+</script>
+</body>
+</html>

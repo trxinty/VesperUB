@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Aim Trainer · Vesper</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;background:#07050c;color:#f5f3ff;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+canvas{display:block;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(139,92,246,0.28);max-width:100%;max-height:100%;}
+.hud{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(13,9,20,0.86);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:10;}
+.hud span b{color:#c4b5fd;}
+.overlay{position:fixed;inset:0;background:rgba(6,4,10,0.78);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;text-align:center;padding:24px;}
+.overlay.hidden{display:none;}
+.overlay h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;letter-spacing:-0.03em;background:linear-gradient(135deg,#fff,#c4b5fd,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.overlay p{color:#a79ec0;max-width:360px;font-size:0.95rem;line-height:1.5;}
+.btn{background:#8b5cf6;color:#fff;border:none;padding:11px 22px;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(139,92,246,0.35);transition:transform 0.14s,background 0.14s;}
+.btn:hover{background:#7c3aed;transform:translateY(-1px);}
+.btn.sec{background:#1b1429;border:1px solid rgba(255,255,255,0.14);box-shadow:none;}
+.btn.active{background:#c084fc;color:#09060e;}
+</style>
+</head>
+<body>
+<div class="hud"><span>Hits <b id="ht">0</b></span><span>Accuracy <b id="ac">100%</b></span><span>Time <b id="tm">30.0</b>s</span></div>
+<canvas id="c" width="760" height="480" style="cursor:crosshair;"></canvas>
+<div class="overlay" id="ov"><h1>AIM TRAINER</h1><p>Click or tap glowing neon targets as fast and accurately as possible in 30 seconds.</p><button class="btn" id="sbtn">Start 30s Drill</button></div>
+<script>
+
+const c=document.getElementById('c'),ctx=c.getContext('2d'),ov=document.getElementById('ov');
+let run=false,hits=0,shots=0,left=30,target={x:380,y:240,r:26},last=0;
+function spawn(){ target={x:55+Math.random()*(c.width-110),y:75+Math.random()*(c.height-120),r:22+Math.random()*12}; }
+function start(){ run=true; hits=0; shots=0; left=30; last=performance.now(); spawn(); sync(); ov.classList.add('hidden'); }
+function sync(){
+  document.getElementById('ht').textContent=hits;
+  document.getElementById('ac').textContent=(shots?Math.round((hits/shots)*100):100)+'%';
+  document.getElementById('tm').textContent=Math.max(0,left).toFixed(1);
+}
+c.addEventListener('pointerdown',e=>{
+  if(!run)return;
+  const r=c.getBoundingClientRect();
+  const x=(e.clientX-r.left)*(c.width/r.width), y=(e.clientY-r.top)*(c.height/r.height);
+  shots++;
+  if(Math.hypot(x-target.x,y-target.y)<=target.r){ hits++; spawn(); }
+  sync();
+});
+document.getElementById('sbtn').onclick=start;
+function loop(now){
+  requestAnimationFrame(loop);
+  ctx.fillStyle='#090612'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle='rgba(139,92,246,0.1)';
+  for(let x=0;x<c.width;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,c.height);ctx.stroke();}
+  for(let y=0;y<c.height;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}
+  if(run){
+    left-=(now-last)/1000; last=now; sync();
+    if(left<=0){
+      run=false; const acc=shots?Math.round((hits/shots)*100):0;
+      ov.querySelector('h1').textContent=`${hits} HITS`;
+      ov.querySelector('p').innerHTML=`Accuracy: <strong>${acc}%</strong> · Speed: <strong>${(hits/30).toFixed(2)} hits/sec</strong>`;
+      document.getElementById('sbtn').textContent='Run Again'; ov.classList.remove('hidden');
+    }
+    ctx.fillStyle='#8b5cf6'; ctx.shadowColor='#a855f7'; ctx.shadowBlur=18;
+    ctx.beginPath(); ctx.arc(target.x,target.y,target.r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(target.x,target.y,target.r*0.42,0,Math.PI*2); ctx.fill();
+  }
+}
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

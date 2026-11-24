@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Void Runner · Vesper</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;background:#07050c;color:#f5f3ff;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+canvas{display:block;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(139,92,246,0.28);max-width:100%;max-height:100%;}
+.hud{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(13,9,20,0.86);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:10;}
+.hud span b{color:#c4b5fd;}
+.overlay{position:fixed;inset:0;background:rgba(6,4,10,0.78);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;text-align:center;padding:24px;}
+.overlay.hidden{display:none;}
+.overlay h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;letter-spacing:-0.03em;background:linear-gradient(135deg,#fff,#c4b5fd,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.overlay p{color:#a79ec0;max-width:360px;font-size:0.95rem;line-height:1.5;}
+.btn{background:#8b5cf6;color:#fff;border:none;padding:12px 26px;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(139,92,246,0.4);transition:transform 0.14s,background 0.14s;}
+.btn:hover{background:#7c3aed;transform:translateY(-1px);}
+.btn.sec{background:#1b1429;border:1px solid rgba(255,255,255,0.14);box-shadow:none;}
+</style>
+</head>
+<body>
+<div class="hud"><span>Distance <b id="sc">0</b>m</span><span>Best <b id="bs">0</b>m</span></div>
+<canvas id="c" width="760" height="480"></canvas>
+<div class="overlay" id="ov"><h1>VOID RUNNER</h1><p>Steer left/right with <strong>A / D</strong>, <strong>Arrow Keys</strong>, or <strong>Touch/Mouse</strong> to dodge glowing red cubes down the neon slope.</p><button class="btn" id="sbtn">Drop In</button></div>
+<script>
+
+const c=document.getElementById('c'),ctx=c.getContext('2d'),ov=document.getElementById('ov');
+let best=+(localStorage.getItem('vg_void_best')||0); document.getElementById('bs').textContent=best;
+let run=false,dist=0,px=0,vx=0,obs=[],speed=0.024,keys={};
+
+function start(){ run=true; dist=0; px=0; vx=0; obs=[]; speed=0.024; ov.classList.add('hidden'); }
+window.addEventListener('keydown',e=>keys[e.code]=true);
+window.addEventListener('keyup',e=>keys[e.code]=false);
+c.addEventListener('pointermove',e=>{ if(!run)return; const r=c.getBoundingClientRect(); const nx=((e.clientX-r.left)/r.width)*2-1; px+=(nx*0.95-px)*0.22; });
+document.getElementById('sbtn').onclick=start;
+
+function proj(x,z){
+  const scale=1/(z+0.15);
+  return { sx:c.width/2 + x*260*scale, sy:140 + 230*scale, s:scale };
+}
+
+let spawnT=0;
+function loop(){
+  requestAnimationFrame(loop);
+  ctx.fillStyle='#06030d'; ctx.fillRect(0,0,c.width,c.height);
+  // Perspective track
+  const tl=proj(-1.1,2.6), tr=proj(1.1,2.6), bl=proj(-1.1,0.05), br=proj(1.1,0.05);
+  ctx.fillStyle='#120a24'; ctx.beginPath(); ctx.moveTo(tl.sx,tl.sy); ctx.lineTo(tr.sx,tr.sy); ctx.lineTo(br.sx,br.sy); ctx.lineTo(bl.sx,bl.sy); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='#8b5cf6'; ctx.lineWidth=2; ctx.stroke();
+  for(let lane=-0.5;lane<=0.5;lane+=0.5){
+    const a=proj(lane,2.6),b=proj(lane,0.05);
+    ctx.strokeStyle='rgba(168,85,247,0.22)'; ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke();
+  }
+
+  if(run){
+    dist+=speed*30; speed=Math.min(0.058,0.024+dist*0.000018);
+    document.getElementById('sc').textContent=Math.floor(dist);
+    if(keys.ArrowLeft||keys.KeyA) vx-=0.007;
+    if(keys.ArrowRight||keys.KeyD) vx+=0.007;
+    vx*=0.84; px=Math.max(-0.92,Math.min(0.92,px+vx));
+    if(--spawnT<=0){
+      obs.push({x:(Math.random()*1.6)-0.8,z:2.6,w:0.28+Math.random()*0.18});
+      spawnT=Math.max(11,Math.floor(26-speed*260));
+    }
+    for(let i=obs.length-1;i>=0;i--){
+      obs[i].z-=speed;
+      if(obs[i].z<0.18 && obs[i].z>0.03 && Math.abs(obs[i].x-px)<obs[i].w*0.65+0.1){
+        run=false; const d=Math.floor(dist);
+        if(d>best){best=d;localStorage.setItem('vg_void_best',best);document.getElementById('bs').textContent=best;}
+        ov.querySelector('h1').textContent='WIPED OUT';
+        ov.querySelector('p').innerHTML=`Distance: <strong>${d}m</strong> · Best: <strong>${best}m</strong>`;
+        document.getElementById('sbtn').textContent='Run Again'; ov.classList.remove('hidden');
+      }
+      if(obs[i].z<0) obs.splice(i,1);
+    }
+  }
+
+  obs.slice().sort((a,b)=>b.z-a.z).forEach(o=>{
+    const p=proj(o.x,o.z), w=o.w*240*p.s, h=w*0.85;
+    ctx.fillStyle='#ef4444'; ctx.shadowColor='#ef4444'; ctx.shadowBlur=12;
+    ctx.fillRect(p.sx-w/2,p.sy-h,w,h); ctx.shadowBlur=0;
+    ctx.strokeStyle='#fecaca'; ctx.lineWidth=1.5; ctx.strokeRect(p.sx-w/2,p.sy-h,w,h);
+  });
+
+  // Player sphere
+  const pp=proj(px,0.12), rad=18;
+  ctx.fillStyle='#38bdf8'; ctx.shadowColor='#38bdf8'; ctx.shadowBlur=18;
+  ctx.beginPath(); ctx.arc(pp.sx,pp.sy-rad,rad,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+}
+loop();
+
+</script>
+</body>
+</html>

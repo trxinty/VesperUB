@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Memory Flip · Vesper</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;background:#07050c;color:#f5f3ff;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+canvas{display:block;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(139,92,246,0.28);max-width:100%;max-height:100%;}
+.hud{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(13,9,20,0.86);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:999px;font-size:14px;font-weight:700;z-index:10;}
+.hud span b{color:#c4b5fd;}
+.overlay{position:fixed;inset:0;background:rgba(6,4,10,0.78);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;text-align:center;padding:24px;}
+.overlay.hidden{display:none;}
+.overlay h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;letter-spacing:-0.03em;background:linear-gradient(135deg,#fff,#c4b5fd,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.overlay p{color:#a79ec0;max-width:360px;font-size:0.95rem;line-height:1.5;}
+.btn{background:#8b5cf6;color:#fff;border:none;padding:11px 22px;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(139,92,246,0.35);transition:transform 0.14s,background 0.14s;}
+.btn:hover{background:#7c3aed;transform:translateY(-1px);}
+.btn.sec{background:#1b1429;border:1px solid rgba(255,255,255,0.14);box-shadow:none;}
+.btn.active{background:#c084fc;color:#09060e;}
+.cards{display:grid;grid-template-columns:repeat(4,82px);gap:10px;margin-top:46px;}
+    .card{height:82px;border-radius:14px;background:#1b132b;border:1px solid rgba(139,92,246,0.35);font-size:2rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.16s,background 0.16s;}
+    .card.open{background:#2d1d4d;border-color:#c4b5fd;}.card.done{background:#122b23;border-color:#10b981;cursor:default;}</style>
+</head>
+<body>
+<div class="hud"><span>Moves <b id="mv">0</b></span><span>Matches <b id="mt">0/8</b></span></div>
+<div class="cards" id="cards"></div>
+<div style="margin-top:16px;"><button class="btn sec" id="rBtn">Shuffle New Deck</button></div>
+<script>
+
+const ICONS=['🟣','⚡','🚀','🎮','🔥','👑','💎','🌙'];
+let deck=[],open=[],moves=0,matches=0,lock=false;
+function init(){
+  deck=[...ICONS,...ICONS].sort(()=>Math.random()-0.5).map((ic,i)=>({id:i,ic,open:false,done:false}));
+  open=[]; moves=0; matches=0; lock=false; sync(); render();
+}
+function sync(){ document.getElementById('mv').textContent=moves; document.getElementById('mt').textContent=`${matches}/8`; }
+function render(){
+  const el=document.getElementById('cards'); el.innerHTML='';
+  deck.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='card'+(c.open?' open':'')+(c.done?' done':'');
+    b.textContent=(c.open||c.done)?c.ic:'?';
+    b.onclick=()=>{
+      if(lock||c.open||c.done)return;
+      c.open=true; open.push(i); render();
+      if(open.length===2){
+        moves++; lock=true;
+        const [a,bIdx]=open;
+        if(deck[a].ic===deck[bIdx].ic){
+          deck[a].done=deck[bIdx].done=true; matches++; open=[]; lock=false; sync(); render();
+        }else{
+          setTimeout(()=>{ deck[a].open=deck[bIdx].open=false; open=[]; lock=false; render(); },650);
+          sync();
+        }
+      }
+    };
+    el.appendChild(b);
+  });
+}
+document.getElementById('rBtn').onclick=init;
+init();
+
+</script>
+</body>
+</html>
